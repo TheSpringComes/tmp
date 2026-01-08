@@ -325,7 +325,7 @@ def run_balanced_analysis_with_save():
     print("  生成空间聚类图...")
     fig1, ax1 = plt.subplots(1, 1, figsize=(14, 10))
     unique_labels = np.unique(cluster_labels)
-    colors = plt.cm.hsv(np.linspace(0, 1, len(unique_labels)))
+    colors = plt.cm.hsv(np.linspace(0, 1, len(unique_labels)), endpoint=False)
     
     for label, color in zip(unique_labels, colors):
         mask = cluster_labels == label
@@ -347,93 +347,7 @@ def run_balanced_analysis_with_save():
     print("  已保存: output_images/01_spatial_clustering.png/pdf")
     plt.show()
     
-    # # 图2: 收敛曲线
-    # print("  生成收敛曲线...")
-    # if lda.log_likelihoods:
-    #     fig2, ax2 = plt.subplots(1, 1, figsize=(12, 7))
-        
-    #     # 创建迭代索引（从burn_in+1开始）
-    #     iterations = np.arange(CONFIG['burn_in'] + 1, 
-    #                          CONFIG['burn_in'] + 1 + len(lda.log_likelihoods) * 10, 
-    #                          10)
-        
-    #     ax2.plot(iterations, lda.log_likelihoods, marker='o', markersize=5, 
-    #             linewidth=2.5, color='steelblue')
-    #     ax2.set_xlabel('Iteration Number', fontsize=14)
-    #     ax2.set_ylabel('Log Likelihood', fontsize=14)
-    #     ax2.set_title('LDA Model Convergence (Gibbs Sampling)', fontsize=16, pad=20)
-    #     ax2.grid(True, alpha=0.3)
-    #     ax2.tick_params(axis='both', which='major', labelsize=12)
-        
-    #     # 标记最后一个点
-    #     last_ll = lda.log_likelihoods[-1]
-    #     ax2.annotate(f'Final LL: {last_ll:.2f}', 
-    #                 xy=(iterations[-1], last_ll),
-    #                 xytext=(iterations[-1] - 20, last_ll - 0.5),
-    #                 fontsize=12,
-    #                 arrowprops=dict(arrowstyle='->', color='red', lw=1.5))
-        
-    #     plt.tight_layout()
-    #     plt.savefig('output_images/02_convergence_curve.png', dpi=300, bbox_inches='tight')
-    #     plt.savefig('output_images/02_convergence_curve.pdf', bbox_inches='tight')
-    #     print("  已保存: output_images/02_convergence_curve.png/pdf")
-    #     plt.show()
-    # else:
-    #     print("  警告: 没有收敛曲线数据可用")
-    
-    # # 图3: 主题分布热图（修正坐标问题）
-    # print("  生成主题分布热图...")
-    # fig3, ax3 = plt.subplots(1, 1, figsize=(16, 10))
-    
-    # # 选择前50个细胞显示（或更少）
-    # n_cells_to_show = min(50, lda.theta.shape[0])
-    # cell_indices = np.arange(n_cells_to_show)  # 前50个细胞的索引
-    
-    # # 获取对应的theta值
-    # theta_subset = lda.theta[cell_indices]  # 形状: (n_cells_to_show, n_topics)
-    
-    # # 注意：imshow显示矩阵时，左上角是(0,0)，对应数组的第一个元素
-    # # 我们想要行表示细胞，列表示主题
-    # heatmap_data = theta_subset.T  # 转置：行=主题，列=细胞
-    
-    # # 创建热图，明确指定extent参数
-    # # extent = [left, right, bottom, top]
-    # # 这里我们让x轴（列）从0到细胞数，y轴（行）从0到主题数
-    # # 注意：在imshow中，origin='upper'是默认的，所以(0,0)在左上角
-    # im = ax3.imshow(heatmap_data, aspect='auto', cmap='YlOrRd',
-    #                 extent=[0, n_cells_to_show, 0, CONFIG['n_topics']],
-    #                 interpolation='nearest')
-    
-    # # 设置坐标轴标签
-    # ax3.set_xlabel('Cell Index (0 to {})'.format(n_cells_to_show-1), fontsize=14)
-    # ax3.set_ylabel('Topic Index (0 to {})'.format(CONFIG['n_topics']-1), fontsize=14)
-    # ax3.set_title('Cell-Topic Distribution Heatmap\n(Top {} Cells)'.format(n_cells_to_show), 
-    #               fontsize=16, pad=20)
-    
-    # # 设置刻度
-    # ax3.set_xticks(np.arange(0, n_cells_to_show, 5))
-    # ax3.set_yticks(np.arange(0.5, CONFIG['n_topics'], 1))
-    # ax3.set_yticklabels([f'Topic {i}' for i in range(CONFIG['n_topics'])])
-    
-    # # 添加颜色条
-    # cbar = plt.colorbar(im, ax=ax3)
-    # cbar.set_label('Topic Probability', fontsize=12)
-    
-    # # 添加网格
-    # ax3.grid(True, which='both', color='gray', linestyle='-', linewidth=0.5, alpha=0.2)
-    
-    # # 在图中标注坐标信息
-    # ax3.text(0.02, 0.98, 'Top-left: (Cell 0, Topic 0)',
-    #          transform=ax3.transAxes, fontsize=10,
-    #          verticalalignment='top',
-    #          bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-    
-    # plt.tight_layout()
-    # plt.savefig('output_images/03_topic_distribution_heatmap.png', dpi=300, bbox_inches='tight')
-    # plt.savefig('output_images/03_topic_distribution_heatmap.pdf', bbox_inches='tight')
-    # print("  已保存: output_images/03_topic_distribution_heatmap.png/pdf")
-    # plt.show()
-    
+       
     # # 图4: 聚类大小分布饼图
     # print("  生成聚类大小分布饼图...")
     # fig4, ax4 = plt.subplots(1, 1, figsize=(10, 8))
@@ -468,61 +382,6 @@ def run_balanced_analysis_with_save():
     # plt.savefig('output_images/04_cluster_size_distribution.png', dpi=300, bbox_inches='tight')
     # plt.savefig('output_images/04_cluster_size_distribution.pdf', bbox_inches='tight')
     # print("  已保存: output_images/04_cluster_size_distribution.png/pdf")
-    # plt.show()
-    
-    # # 图5: 主题-基因热图（每个主题的前10个关键基因）
-    # print("  生成主题-基因热图...")
-    # n_top_genes = 10  # 每个主题显示前10个基因
-    # n_topics = CONFIG['n_topics']
-    
-    # # 收集每个主题的前n_top_genes个基因
-    # top_genes_data = np.zeros((n_topics * n_top_genes, n_topics))
-    # gene_labels = []
-    
-    # for k in range(n_topics):
-    #     # 获取主题k中概率最高的n_top_genes个基因
-    #     top_indices = np.argsort(lda.beta[k])[::-1][:n_top_genes]
-    #     top_probs = lda.beta[k][top_indices]
-    #     top_names = [gene_names[idx] for idx in top_indices]
-        
-    #     # 存储数据
-    #     top_genes_data[k*n_top_genes:(k+1)*n_top_genes, k] = top_probs
-        
-    #     # 存储基因标签
-    #     gene_labels.extend([f"{name}" for name in top_names])
-    
-    # # 创建热图
-    # fig5, ax5 = plt.subplots(1, 1, figsize=(14, 12))
-    
-    # im5 = ax5.imshow(top_genes_data, aspect='auto', cmap='Blues',
-    #                 interpolation='nearest')
-    
-    # # 设置坐标轴
-    # ax5.set_xlabel('Topic Index', fontsize=14)
-    # ax5.set_ylabel('Top Genes (per topic)', fontsize=14)
-    # ax5.set_title(f'Top {n_top_genes} Genes per Topic', fontsize=16, pad=20)
-    
-    # # 设置刻度
-    # ax5.set_xticks(np.arange(n_topics))
-    # ax5.set_xticklabels([f'Topic {i}' for i in range(n_topics)])
-    # ax5.set_yticks(np.arange(len(gene_labels)))
-    # ax5.set_yticklabels(gene_labels, fontsize=9)
-    
-    # # 添加颜色条
-    # cbar5 = plt.colorbar(im5, ax=ax5)
-    # cbar5.set_label('Gene Probability in Topic', fontsize=12)
-    
-    # # 添加网格线
-    # ax5.grid(True, which='both', color='gray', linestyle='-', linewidth=0.5, alpha=0.1)
-    
-    # # 添加主题分隔线
-    # for i in range(1, n_topics):
-    #     ax5.axhline(y=i*n_top_genes - 0.5, color='red', linestyle='--', linewidth=1, alpha=0.7)
-    
-    # plt.tight_layout()
-    # plt.savefig('output_images/05_topic_gene_heatmap.png', dpi=300, bbox_inches='tight')
-    # plt.savefig('output_images/05_topic_gene_heatmap.pdf', bbox_inches='tight')
-    # print("  已保存: output_images/05_topic_gene_heatmap.png/pdf")
     # plt.show()
     
     # 5. 输出结果并保存
@@ -674,18 +533,6 @@ def create_summary_report(lda, cluster_labels, config, gene_names, positions):
         "   - 10_cluster_statistics.csv: 聚类统计信息",
         "   - analysis_report.txt: 本报告文件",
         "",
-        "7. 热图坐标说明:",
-        "   - 在主题分布热图(03)中:",
-        "     * 左上角(0,0)对应: Cell 0, Topic 0",
-        "     * X轴: 细胞索引 (0到N-1)",
-        "     * Y轴: 主题索引 (0到K-1)",
-        "     * 颜色: 表示细胞属于某主题的概率",
-        "   - 在主题-基因热图(05)中:",
-        "     * 左上角(0,0)对应: Top gene 0 for Topic 0",
-        "     * X轴: 主题索引",
-        "     * Y轴: 各主题的关键基因",
-        "     * 颜色: 表示基因在主题中的概率",
-        "",
         "=" * 80,
     ])
     
@@ -747,12 +594,6 @@ def lda_theory_summary():
         "   - 使用int32数组减少内存",
         "   - 预计算常数项提高速度",
         "   - 只处理高变基因减少维度",
-        
-        "\n6. 坐标系统说明:",
-        "   - 在matplotlib的imshow中，默认origin='upper'，即(0,0)在左上角",
-        "   - 本实现中，热图的左上角对应数组的第一个元素",
-        "   - 对于主题分布热图: 行=主题，列=细胞",
-        "   - 左上角(0,0) = 第一个主题(行0)和第一个细胞(列0)",
     ]
     
     for point in theory_points:
@@ -765,4 +606,3 @@ if __name__ == "__main__":
     lda_theory_summary()
     # 运行平衡版分析并保存结果
     lda, labels, genes = run_balanced_analysis_with_save()
-    
