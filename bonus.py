@@ -428,7 +428,7 @@ def run_bonus_analysis():
         'position_file': 'PGMProject2025-data/Task1-Visium_HD-Position.txt',
         'n_topics': 4,
         'top_genes': 200,
-        'n_cells': 5000,  # 为了速度，使用部分细胞
+        'n_cells': 37817,  # 为了速度，使用部分细胞
         'n_bins': 5,
         'n_iter': 100,
         'burn_in': 50,
@@ -559,7 +559,7 @@ def run_bonus_analysis():
     # 4. 可视化对比
     print("\n阶段4: 可视化对比...")
     
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    _, axes = plt.subplots(1, 2, figsize=(12, 6))
     
     # 图1: 基础LDA结果
     ax1 = axes[0]
