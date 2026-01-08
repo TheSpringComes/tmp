@@ -602,6 +602,53 @@ def run_bonus_analysis():
     print("  已保存: output_images_bonus/01_comparison.png")
     plt.show()
     
+    
+    # ---------------------------
+    # 2. 保存单独的基础LDA图
+    # ---------------------------
+    fig_basic, ax_basic = plt.subplots(figsize=(6, 6))
+    unique_labels_basic = np.unique(basic_labels)
+    colors_basic = plt.cm.hsv(np.linspace(0, 1, len(unique_labels_basic), endpoint=False))
+    for label, color in zip(unique_labels_basic, colors_basic):
+        mask = basic_labels == label
+        ax_basic.scatter(positions[mask, 0], positions[mask, 1],
+                        c=[color], label=f'Cluster {label}',
+                        s=8, alpha=0.7, edgecolors='none')
+    ax_basic.set_xlabel('X Coordinate', fontsize=12)
+    ax_basic.set_ylabel('Y Coordinate', fontsize=12)
+    ax_basic.set_title(f'Basic LDA (K={CONFIG["n_topics"]})', fontsize=14)
+    ax_basic.grid(True, alpha=0.3)
+    ax_basic.set_aspect('equal', adjustable='box')
+    ax_basic.invert_yaxis()
+    fig_basic.tight_layout()
+    fig_basic.savefig('output_images_bonus/01_basic.png', dpi=300, bbox_inches='tight')
+    plt.close(fig_basic)
+    print("  已保存: output_images_bonus/01_basic.png")
+
+
+    # ---------------------------
+    # 3. 保存单独的增强LDA图
+    # ---------------------------
+    fig_enhanced, ax_enhanced = plt.subplots(figsize=(6, 6))
+    unique_labels_enhanced = np.unique(enhanced_labels)
+    colors_enhanced = plt.cm.hsv(np.linspace(0, 1, len(unique_labels_enhanced), endpoint=False))
+    for label, color in zip(unique_labels_enhanced, colors_enhanced):
+        mask = enhanced_labels == label
+        ax_enhanced.scatter(positions[mask, 0], positions[mask, 1],
+                            c=[color], label=f'Cluster {label}',
+                            s=8, alpha=0.7, edgecolors='none')
+    ax_enhanced.set_xlabel('X Coordinate', fontsize=12)
+    ax_enhanced.set_ylabel('Y Coordinate', fontsize=12)
+    ax_enhanced.set_title(fr'Enhanced LDA ($\lambda_s$={CONFIG["lambda_s"]}, $\lambda_i$={CONFIG["lambda_i"]})', fontsize=14)
+    ax_enhanced.grid(True, alpha=0.3)
+    ax_enhanced.set_aspect('equal', adjustable='box')
+    ax_enhanced.invert_yaxis()
+    fig_enhanced.tight_layout()
+    fig_enhanced.savefig('output_images_bonus/01_enhanced.png', dpi=300, bbox_inches='tight')
+    plt.close(fig_enhanced)
+    print("  已保存: output_images_bonus/01_enhanced.png")
+    
+    
     # 5. 聚类质量评估
     print("\n阶段5: 聚类质量评估...")
     
