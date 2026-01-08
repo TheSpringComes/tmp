@@ -426,7 +426,7 @@ def run_bonus_analysis():
     CONFIG = {
         'expr_file': 'PGMProject2025-data/Task1-Visium_HD-HVG_rank_expr.txt',
         'position_file': 'PGMProject2025-data/Task1-Visium_HD-Position.txt',
-        'n_topics': 6,
+        'n_topics': 4,
         'top_genes': 200,
         'n_cells': 5000,  # 为了速度，使用部分细胞
         'n_bins': 5,
@@ -559,7 +559,7 @@ def run_bonus_analysis():
     # 4. 可视化对比
     print("\n阶段4: 可视化对比...")
     
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
     
     # 图1: 基础LDA结果
     ax1 = axes[0]
@@ -592,30 +592,10 @@ def run_bonus_analysis():
     
     ax2.set_xlabel('X Coordinate', fontsize=12)
     ax2.set_ylabel('Y Coordinate', fontsize=12)
-    ax2.set_title(f'Enhanced LDA (λ_s={CONFIG["lambda_s"]}, λ_i={CONFIG["lambda_i"]})', fontsize=14)
+    ax2.set_title(fr'Enhanced LDA ($λ_s$={CONFIG["lambda_s"]}, $λ_i$={CONFIG["lambda_i"]})', fontsize=14)
     ax2.grid(True, alpha=0.3)
     ax2.set_aspect('equal', adjustable='box')
     ax2.invert_yaxis()
-    
-    # 图3: 邻居可视化（示例）
-    ax3 = axes[2]
-    # 随机选择一个细胞展示其邻居
-    example_cell = 100
-    neighbors = enhanced_lda.neighbors[example_cell]
-    
-    ax3.scatter(positions[:, 0], positions[:, 1], c='lightgray', s=2, alpha=0.5, label='All cells')
-    ax3.scatter(positions[example_cell, 0], positions[example_cell, 1], 
-               c='red', s=50, label='Center cell')
-    ax3.scatter(positions[neighbors, 0], positions[neighbors, 1],
-               c='blue', s=30, label=f'{CONFIG["n_neighbors"]} neighbors')
-    
-    ax3.set_xlabel('X Coordinate', fontsize=12)
-    ax3.set_ylabel('Y Coordinate', fontsize=12)
-    ax3.set_title(f'Neighborhood Example (Cell {example_cell})', fontsize=14)
-    ax3.legend(loc='upper right')
-    ax3.grid(True, alpha=0.3)
-    ax3.set_aspect('equal', adjustable='box')
-    ax3.invert_yaxis()
     
     plt.tight_layout()
     plt.savefig('output_images_bonus/01_comparison.png', dpi=300, bbox_inches='tight')
@@ -688,139 +668,12 @@ def run_bonus_analysis():
     eval_df.to_csv('output_images_bonus/04_evaluation_results.csv', index=False)
     print(f"  已保存: output_images_bonus/04_evaluation_results.csv")
     
-    # 7. 参数敏感性分析
-    print("\n阶段7: 参数敏感性分析...")
-    
-    # 测试不同的λ_s和λ_i值
-    lambda_s_values = [0, 0.2, 0.5, 1.0, 2.0]
-    lambda_i_values = [0, 0.1, 0.3, 0.5, 1.0]
-    
-    coherence_matrix = np.zeros((len(lambda_s_values), len(lambda_i_values)))
-    
-    for i, lambda_s in enumerate(lambda_s_values):
-        for j, lambda_i in enumerate(lambda_i_values):
-            if lambda_s == 0 and lambda_i == 0:
-                coherence_matrix[i, j] = basic_coherence
-                continue
-                
-            print(f"  测试 λ_s={lambda_s}, λ_i={lambda_i}...")
-            
-            # 训练模型
-            test_lda = SpatialImageLDA(
-                n_topics=CONFIG['n_topics'],
-                alpha=0.05,
-                eta=0.01,
-                n_iter=30,  # 快速测试
-                burn_in=15,
-                verbose=False,
-                lambda_s=lambda_s,
-                lambda_i=lambda_i,
-                n_neighbors=CONFIG['n_neighbors']
-            )
-            
-            test_lda.fit(documents, len(gene_names), positions, image_features)
-            test_labels = test_lda.cluster_cells()
-            
-            # 计算空间一致性
-            coherence = calculate_spatial_coherence(test_labels, positions)
-            coherence_matrix[i, j] = coherence
-    
-    # 可视化参数敏感性
-    fig, ax = plt.subplots(figsize=(10, 8))
-    im = ax.imshow(coherence_matrix, cmap='YlOrRd', aspect='auto')
-    
-    # 设置坐标轴
-    ax.set_xticks(np.arange(len(lambda_i_values)))
-    ax.set_yticks(np.arange(len(lambda_s_values)))
-    ax.set_xticklabels([f'λ_i={v}' for v in lambda_i_values])
-    ax.set_yticklabels([f'λ_s={v}' for v in lambda_s_values])
-    
-    # 添加数值标签
-    for i in range(len(lambda_s_values)):
-        for j in range(len(lambda_i_values)):
-            text = ax.text(j, i, f'{coherence_matrix[i, j]:.3f}',
-                          ha="center", va="center", color="black", fontsize=9)
-    
-    ax.set_xlabel('图像权重 λ_i', fontsize=12)
-    ax.set_ylabel('空间权重 λ_s', fontsize=12)
-    ax.set_title('参数敏感性分析: 空间一致性 vs. λ_s 和 λ_i', fontsize=14)
-    
-    plt.colorbar(im, ax=ax)
-    plt.tight_layout()
-    plt.savefig('output_images_bonus/05_parameter_sensitivity.png', dpi=300, bbox_inches='tight')
-    print("  已保存: output_images_bonus/05_parameter_sensitivity.png")
-    plt.show()
-    
-    # 保存敏感性分析结果
-    sens_df = pd.DataFrame(coherence_matrix, 
-                          index=[f'λ_s={v}' for v in lambda_s_values],
-                          columns=[f'λ_i={v}' for v in lambda_i_values])
-    sens_df.to_csv('output_images_bonus/06_parameter_sensitivity.csv')
-    print(f"  已保存: output_images_bonus/06_parameter_sensitivity.csv")
-    
     print("\n" + "=" * 60)
     print("Bonus分析完成！所有结果已保存在 output_images_bonus/ 目录下")
     print("=" * 60)
     
     return enhanced_lda, basic_labels, enhanced_labels, gene_names
 
-def bonus_theory_summary():
-    """Bonus部分理论总结"""
-    print("=" * 80)
-    print("融合空间和图像信息的LDA模型理论要点")
-    print("=" * 80)
-    
-    theory_points = [
-        "1. 模型扩展:",
-        "   - 在标准LDA基础上，引入空间邻居信息和图像特征信息",
-        "   - 空间项: 鼓励相邻细胞具有相似的主题分布",
-        "   - 图像项: 鼓励细胞图像特征与主题原型一致",
-        
-        "\n2. 关键变量:",
-        "   - n_nbr_{d,k}: 细胞d的邻居中属于主题k的token数",
-        "   - f_d: 细胞d的图像特征向量",
-        "   - μ_k: 主题k的图像特征原型",
-        "   - λ_s: 空间一致性权重",
-        "   - λ_i: 图像特征相似性权重",
-        
-        "\n3. 改进的条件分布:",
-        "   p(z_{d,n}=k | ·) ∝ (n_{d,k}^{-dn} + α) × (n_{k,w}^{-dn} + η)/(n_k^{-dn} + Vη)",
-        "                   × exp(λ_s × n_nbr_{d,k} - λ_i × ||f_d - μ_k||^2)",
-        
-        "\n4. 空间邻居构建:",
-        "   - 使用KDTree快速查找每个细胞的k近邻",
-        "   - 维护邻居主题计数矩阵n_nbr_dk",
-        "   - 每次主题分配变化时更新邻居计数",
-        
-        "\n5. 图像特征处理:",
-        "   - 从病理图像提取特征或使用基因表达特征作为代理",
-        "   - 主题原型μ_k: 属于主题k的所有细胞特征的平均",
-        "   - 定期更新原型以反映主题分配的变化",
-        
-        "\n6. 参数估计:",
-        "   - θ_{d,k} = (n_{d,k} + α) / (N_d + Kα)",
-        "   - β_{k,w} = (n_{k,w} + η) / (n_k + Vη)",
-        "   - μ_k = (1/n_k) Σ_{z_{d,n}=k} f_d",
-        
-        "\n7. 优势:",
-        "   - 提高聚类的空间连续性",
-        "   - 整合多模态信息（基因表达+图像特征）",
-        "   - 更符合空间转录组数据的生物学特性",
-        
-        "\n8. 挑战:",
-        "   - 计算复杂度增加（需维护邻居计数和图像原型）",
-        "   - 需要平衡λ_s和λ_i参数",
-        "   - 图像特征提取的质量影响聚类效果",
-    ]
-    
-    for point in theory_points:
-        print(point)
-    
-    print("\n" + "=" * 80)
 
 if __name__ == "__main__":
-    # 显示理论总结
-    bonus_theory_summary()
-    
-    # 运行Bonus分析
     enhanced_lda, basic_labels, enhanced_labels, genes = run_bonus_analysis()
