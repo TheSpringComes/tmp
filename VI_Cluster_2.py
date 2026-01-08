@@ -21,39 +21,7 @@ class OptimizedGibbsLDA:
         self.n_iter = n_iter
         self.burn_in = burn_in
         self.verbose = verbose
-        
-    # def _initialize_structures(self, documents):
-    #     """优化初始化数据结构"""
-    #     D = len(documents)
-    #     max_doc_len = max(len(doc) for doc in documents)
-        
-    #     self.z = -np.ones((D, max_doc_len), dtype=np.int32)
-    #     self.doc_lengths = np.zeros(D, dtype=np.int32)
-    #     self.n_dk = np.zeros((D, self.K), dtype=np.int32)
-    #     self.n_kv = np.zeros((self.K, self.V), dtype=np.int32)
-    #     self.n_k = np.zeros(self.K, dtype=np.int32)
-        
-    #     self.doc_words = []
-    #     self.doc_counts = []
-        
-    #     for d in range(D):
-    #         words = []
-    #         counts = []
-    #         word_dict = {}
-            
-    #         for word, count in documents[d]:
-    #             if word in word_dict:
-    #                 word_dict[word] += count
-    #             else:
-    #                 word_dict[word] = count
-            
-    #         for word, total_count in word_dict.items():
-    #             words.append(word)
-    #             counts.append(total_count)
-            
-    #         self.doc_words.append(np.array(words, dtype=np.int32))
-    #         self.doc_counts.append(np.array(counts, dtype=np.int32))
-    #         self.doc_lengths[d] = sum(counts)
+
     def _initialize_structures(self, documents):
         D = len(documents)
 
@@ -283,8 +251,8 @@ def run_balanced_analysis_with_save():
         'top_genes': 200,
         'n_cells': 37817,
         'n_bins': 5,
-        'n_iter': 50,
-        'burn_in': 25,
+        'n_iter': 200,
+        'burn_in': 100,
     }
     
     # 1. 处理数据
@@ -325,7 +293,7 @@ def run_balanced_analysis_with_save():
     print("  生成空间聚类图...")
     fig1, ax1 = plt.subplots(1, 1, figsize=(14, 10))
     unique_labels = np.unique(cluster_labels)
-    colors = plt.cm.hsv(np.linspace(0, 1, len(unique_labels)), endpoint=False)
+    colors = plt.cm.hsv(np.linspace(0, 1, len(unique_labels), endpoint=False))
     
     for label, color in zip(unique_labels, colors):
         mask = cluster_labels == label
