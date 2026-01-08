@@ -1,0 +1,3 @@
+model,spatial_coherence,lambda_s,lambda_i
+Basic LDA,0.41808181505672054,0.0,0.0
+Enhanced LDA,0.802898167490811,0.5,0.3
