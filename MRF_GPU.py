@@ -31,7 +31,6 @@ class MRFGPUSegmentation:
         print(f"使用设备: {self.device}")
         if self.device.type == 'cuda':
             print(f"GPU: {torch.cuda.get_device_name(0)}")
-            print(f"GPU内存: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
         
         # 模型参数
         self.means = None
@@ -284,36 +283,63 @@ class MRFGPUSegmentation:
         
         return log_likelihood
     
-    def compute_prior_energy(self):
+    def compute_prior_energy_vectorized(self):
         """
-        计算先验能量（Potts模型）
+        向量化计算先验能量
         返回形状为 [K, H, W] 的张量
         """
         H, W = self.height, self.width
         K = self.K
         
-        # 为每个类别创建掩码 [K, 1, H, W]
-        masks = torch.zeros(K, 1, H, W, device=self.device)
+        # 获取当前标签场
+        Z = self.Z_tensor
+        
+        # 创建扩展的标签场用于向量化计算
+        Z_padded = F.pad(Z.unsqueeze(0).unsqueeze(0), (1, 1, 1, 1), mode='constant', value=-1)  # [1, 1, H+2, W+2]
+        Z_padded = Z_padded.squeeze(0).squeeze(0)  # [H+2, W+2]
+        
+        # 计算每个位置的邻居标签
+        # 上邻居
+        Z_up = Z_padded[:-2, 1:-1]  # [H, W]
+        # 下邻居
+        Z_down = Z_padded[2:, 1:-1]  # [H, W]
+        # 左邻居
+        Z_left = Z_padded[1:-1, :-2]  # [H, W]
+        # 右邻居
+        Z_right = Z_padded[1:-1, 2:]  # [H, W]
+        
+        # 初始化先验能量张量
+        prior_energy = torch.zeros(K, H, W, device=self.device)
+        
+        # 为每个类别计算先验能量
         for k in range(K):
-            masks[k, 0] = (self.Z_tensor == k).float()
-        
-        # 定义4邻域卷积核
-        kernel = torch.tensor([[[[0, 1, 0],
-                                 [1, 0, 1],
-                                 [0, 1, 0]]]], dtype=torch.float32, device=self.device)
-        
-        # 使用分组卷积计算每个类别掩码的邻居数
-        # 每个组处理一个类别的掩码
-        same_neighbors = F.conv2d(masks, kernel, padding=1, groups=K)  # [K, 1, H, W]
-        same_neighbors = same_neighbors.squeeze(1)  # [K, H, W]
-        
-        # 计算先验能量
-        # 每个像素有4个邻居
-        prior_energy = self.beta * (4 - 2 * same_neighbors)
+            # 创建当前类别的掩码
+            mask_k = (Z == k).float()  # [H, W]
+            
+            # 计算与当前类别相同的邻居数
+            same_up = (Z_up == k).float()
+            same_down = (Z_down == k).float()
+            same_left = (Z_left == k).float()
+            same_right = (Z_right == k).float()
+            
+            # 边界处理：无效邻居不计入
+            valid_up = (Z_up != -1).float()
+            valid_down = (Z_down != -1).float()
+            valid_left = (Z_left != -1).float()
+            valid_right = (Z_right != -1).float()
+            
+            # 计算相同邻居数
+            same_count = same_up * valid_up + same_down * valid_down + same_left * valid_left + same_right * valid_right
+            
+            # 计算总有效邻居数
+            total_neighbors = valid_up + valid_down + valid_left + valid_right
+            
+            # 先验能量 = β * (总邻居数 - 2*相同邻居数)
+            prior_energy[k] = self.beta * (total_neighbors - 2 * same_count)
         
         return prior_energy
     
-    def icm_update(self):
+    def icm_update(self, use_vectorized=True):
         """
         执行一次ICM更新
         返回标签变化率
@@ -322,7 +348,7 @@ class MRFGPUSegmentation:
         log_likelihood = self.compute_log_likelihood()  # [K, H, W]
         
         # 计算先验能量
-        prior_energy = self.compute_prior_energy()  # [K, H, W]
+        prior_energy = self.compute_prior_energy_vectorized()  # [K, H, W]
         
         # 计算总能量
         total_energy = -log_likelihood + prior_energy  # [K, H, W]
@@ -454,43 +480,28 @@ class MRFGPUSegmentation:
     
     def visualize(self, save_path=None):
         """
-        可视化分割结果
+        可视化分割结果 - 简化版，只显示3通道合并结果
         """
         # 将数据移回CPU
         image_cpu = self.X_tensor.cpu().permute(1, 2, 0).numpy()
         Z_cpu = self.Z_tensor.cpu().numpy()
         
-        # 创建可视化图
-        fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+        # 创建可视化图 - 只显示原始图像、分割结果和边界叠加
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
         
         # 1. 原始图像
-        axes[0, 0].imshow(image_cpu)
-        axes[0, 0].set_title('原始病理图像')
-        axes[0, 0].axis('off')
+        axes[0].imshow(image_cpu)
+        axes[0].set_title('原始病理图像')
+        axes[0].axis('off')
         
-        # 2. 红色通道
-        axes[0, 1].imshow(image_cpu[:, :, 0], cmap='Reds')
-        axes[0, 1].set_title('红色通道')
-        axes[0, 1].axis('off')
+        # 2. 分割结果 - 使用新的colormap API
+        colormap = plt.cm.tab10
+        seg_display = colormap(Z_cpu % 10)  # 使用tab10色彩映射
+        axes[1].imshow(seg_display)
+        axes[1].set_title(f'分割结果 (K={self.K}, β={self.beta})')
+        axes[1].axis('off')
         
-        # 3. 绿色通道
-        axes[0, 2].imshow(image_cpu[:, :, 1], cmap='Greens')
-        axes[0, 2].set_title('绿色通道')
-        axes[0, 2].axis('off')
-        
-        # 4. 蓝色通道
-        axes[1, 0].imshow(image_cpu[:, :, 2], cmap='Blues')
-        axes[1, 0].set_title('蓝色通道')
-        axes[1, 0].axis('off')
-        
-        # 5. 分割结果
-        cmap = plt.cm.get_cmap('tab10', self.K)
-        seg_display = cmap(Z_cpu % 10)  # 使用tab10色彩映射
-        axes[1, 1].imshow(seg_display)
-        axes[1, 1].set_title(f'分割结果 (K={self.K}, β={self.beta})')
-        axes[1, 1].axis('off')
-        
-        # 6. 边界叠加
+        # 3. 边界叠加
         overlay = image_cpu.copy()
         
         # 计算边界
@@ -507,9 +518,9 @@ class MRFGPUSegmentation:
         # 标记边界为白色
         overlay[boundaries] = [1.0, 1.0, 1.0]
         
-        axes[1, 2].imshow(overlay)
-        axes[1, 2].set_title('分割边界叠加')
-        axes[1, 2].axis('off')
+        axes[2].imshow(overlay)
+        axes[2].set_title('分割边界叠加')
+        axes[2].axis('off')
         
         plt.suptitle('MRF病理图像分割结果', fontsize=16)
         plt.tight_layout()
@@ -530,9 +541,9 @@ class MRFGPUSegmentation:
         # 获取分割结果
         Z_cpu = self.Z_tensor.cpu().numpy()
         
-        # 保存为彩色图像
-        cmap = plt.cm.get_cmap('tab10', self.K)
-        seg_display = (cmap(Z_cpu % 10)[:, :, :3] * 255).astype(np.uint8)
+        # 保存为彩色图像 - 使用新的colormap API
+        colormap = plt.cm.tab10
+        seg_display = (colormap(Z_cpu % 10)[:, :, :3] * 255).astype(np.uint8)
         
         # 保存分割结果
         seg_path = os.path.join(output_dir, 'segmentation.png')
@@ -567,107 +578,6 @@ class MRFGPUSegmentation:
         print(f"  标签矩阵: {label_path}")
 
 
-def test_different_parameters():
-    """
-    测试不同参数对分割结果的影响
-    """
-    print("测试不同参数对分割结果的影响")
-    print("=" * 60)
-    
-    # 创建测试图像
-    height, width = 256, 256
-    test_image = np.zeros((height, width, 3), dtype=np.float32)
-    
-    # 添加几个区域
-    test_image[50:150, 50:150, :] = [0.8, 0.2, 0.2]    # 红色区域
-    test_image[100:200, 150:250, :] = [0.2, 0.8, 0.2]  # 绿色区域
-    test_image[150:250, 100:200, :] = [0.2, 0.2, 0.8]  # 蓝色区域
-    
-    # 添加噪声
-    test_image += np.random.normal(0, 0.05, test_image.shape)
-    test_image = np.clip(test_image, 0, 1)
-    
-    # 转换为PyTorch张量
-    test_tensor = torch.from_numpy(test_image).permute(2, 0, 1).float().cuda()
-    
-    # 测试不同的K值
-    K_values = [2, 3, 4, 5]
-    
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    axes = axes.flatten()
-    
-    for idx, K in enumerate(K_values):
-        print(f"\n测试 K={K}...")
-        
-        # 创建分割器
-        mrf = MRFGPUSegmentation(K=K, beta=1.0, max_iter=10)
-        mrf.X_tensor = test_tensor
-        mrf.height, mrf.width, mrf.channels = height, width, 3
-        
-        # 初始化
-        mrf.initialize()
-        
-        # 运行几次迭代
-        for i in range(5):
-            mrf.icm_update()
-            if i % 2 == 0:
-                mrf.update_parameters()
-        
-        # 获取结果
-        Z = mrf.get_segmentation()
-        
-        # 显示结果
-        cmap = plt.cm.get_cmap('tab10', K)
-        seg_display = cmap(Z % 10)
-        axes[idx].imshow(seg_display)
-        axes[idx].set_title(f'K={K}')
-        axes[idx].axis('off')
-    
-    plt.suptitle('不同类别数K对分割结果的影响', fontsize=16)
-    plt.tight_layout()
-    plt.savefig('K_parameter_test.png', dpi=150, bbox_inches='tight')
-    plt.show()
-    
-    # 测试不同的beta值
-    beta_values = [0.1, 0.5, 1.0, 2.0]
-    K_fixed = 3
-    
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    axes = axes.flatten()
-    
-    for idx, beta in enumerate(beta_values):
-        print(f"\n测试 β={beta}...")
-        
-        # 创建分割器
-        mrf = MRFGPUSegmentation(K=K_fixed, beta=beta, max_iter=10)
-        mrf.X_tensor = test_tensor
-        mrf.height, mrf.width, mrf.channels = height, width, 3
-        
-        # 初始化
-        mrf.initialize()
-        
-        # 运行几次迭代
-        for i in range(5):
-            mrf.icm_update()
-            if i % 2 == 0:
-                mrf.update_parameters()
-        
-        # 获取结果
-        Z = mrf.get_segmentation()
-        
-        # 显示结果
-        cmap = plt.cm.get_cmap('tab10', K_fixed)
-        seg_display = cmap(Z % 10)
-        axes[idx].imshow(seg_display)
-        axes[idx].set_title(f'β={beta}')
-        axes[idx].axis('off')
-    
-    plt.suptitle('不同耦合系数β对分割结果的影响', fontsize=16)
-    plt.tight_layout()
-    plt.savefig('beta_parameter_test.png', dpi=150, bbox_inches='tight')
-    plt.show()
-
-
 def main():
     """
     主函数：执行MRF分割
@@ -684,8 +594,7 @@ def main():
     )
     
     # 执行分割
-    # 替换为你的图像路径
-    image_path = "Task2-Visium_HD-Crop.png"
+    image_path = "PGMProject2025-data/Task2-Visium_HD-Crop.png"
     
     history = mrf.segment(
         image_path=image_path,
@@ -732,6 +641,3 @@ def main():
 if __name__ == "__main__":
     # 运行主函数
     main()
-    
-    # 可选：测试不同参数的影响
-    # test_different_parameters()
