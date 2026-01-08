@@ -1,0 +1,2 @@
+expr_file,position_file,n_topics,top_genes,n_cells,n_bins,n_iter,burn_in
+PGMProject2025-data/Task1-Visium_HD-HVG_rank_expr.txt,PGMProject2025-data/Task1-Visium_HD-Position.txt,4,200,37817,5,200,100
